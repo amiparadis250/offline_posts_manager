@@ -1,17 +1,26 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../database/database_helper.dart';
 import '../models/post.dart';
 import 'post_detail_screen.dart';
 import 'post_form_screen.dart';
 
-// Default blog images to cycle through when user doesn't provide one
-const _defaultImages = [
-  'https://images.unsplash.com/photo-1499750310107-5fef28a66643?w=600',
-  'https://images.unsplash.com/photo-1432821596592-e2c18b78144f?w=600',
-  'https://images.unsplash.com/photo-1488190211105-8b0e65b80b4e?w=600',
-  'https://images.unsplash.com/photo-1455390582262-044cdead277a?w=600',
-  'https://images.unsplash.com/photo-1471107340929-a87cd0f5b5f3?w=600',
-  'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=600',
+const _cardColors = [
+  Color(0xFF6C63FF),
+  Color(0xFFFF6584),
+  Color(0xFF43AA8B),
+  Color(0xFFFF9F1C),
+  Color(0xFF577590),
+  Color(0xFFE07A5F),
+];
+
+const _cardIcons = [
+  Icons.article_outlined,
+  Icons.lightbulb_outline,
+  Icons.code,
+  Icons.explore_outlined,
+  Icons.auto_stories_outlined,
+  Icons.edit_note,
 ];
 
 class PostListScreen extends StatefulWidget {
@@ -59,10 +68,6 @@ class _PostListScreenState extends State<PostListScreen> {
     } catch (e) {
       setState(() { _error = e.toString(); _isLoading = false; });
     }
-  }
-
-  String _getImage(Post post, int index) {
-    return post.imageUrl.isNotEmpty ? post.imageUrl : _defaultImages[index % _defaultImages.length];
   }
 
   String _formatDate(String iso) {
@@ -115,30 +120,80 @@ class _PostListScreenState extends State<PostListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
       body: CustomScrollView(
         slivers: [
-          // Beautiful app bar
-          SliverAppBar(
-            expandedHeight: 140,
-            floating: true,
-            pinned: true,
-            flexibleSpace: FlexibleSpaceBar(
-              title: const Text('📝 My Blog', style: TextStyle(fontWeight: FontWeight.bold)),
-              background: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [colorScheme.primary, colorScheme.tertiary],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+          SliverToBoxAdapter(
+            child: Container(
+              width: double.infinity,
+              padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top + 16, left: 24, right: 24, bottom: 28),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFF6C63FF), Color(0xFF9B59B6), Color(0xFFE91E8C)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
+                borderRadius: BorderRadius.only(
+                  bottomLeft: Radius.circular(32),
+                  bottomRight: Radius.circular(32),
+                ),
+              ),
+              child: Stack(
+                children: [
+                  // Decorative circles
+                  Positioned(top: -20, right: -20, child: _Circle(size: 100, opacity: 0.08)),
+                  Positioned(bottom: -10, left: -30, child: _Circle(size: 80, opacity: 0.06)),
+                  Positioned(top: 30, right: 60, child: _Circle(size: 40, opacity: 0.1)),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: const Icon(Icons.menu_book_rounded, color: Colors.white, size: 28),
+                          ),
+                          const Spacer(),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.article_outlined, color: Colors.white, size: 16),
+                                const SizedBox(width: 6),
+                                Text(
+                                  '${_posts.length} post${_posts.length == 1 ? '' : 's'}',
+                                  style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      const Text(
+                        'Company Blog',
+                        style: TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.w800, letterSpacing: -0.5),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Capture your thoughts, anytime, anywhere.',
+                        style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 15, fontWeight: FontWeight.w400),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ),
-
-          // Search bar
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
@@ -155,18 +210,6 @@ class _PostListScreenState extends State<PostListScreen> {
             ),
           ),
 
-          // Post count
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: Text(
-                '${_filtered.length} post${_filtered.length == 1 ? '' : 's'}',
-                style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w500),
-              ),
-            ),
-          ),
-
-          // Content
           if (_isLoading)
             const SliverFillRemaining(child: Center(child: CircularProgressIndicator()))
           else if (_error != null)
@@ -212,17 +255,19 @@ class _PostListScreenState extends State<PostListScreen> {
                 delegate: SliverChildBuilderDelegate(
                   (context, index) {
                     final post = _filtered[index];
-                    final imageUrl = _getImage(post, index);
+                    final color = _cardColors[index % _cardColors.length];
+                    final icon = _cardIcons[index % _cardIcons.length];
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 16),
                       child: _PostCard(
                         post: post,
-                        imageUrl: imageUrl,
+                        color: color,
+                        icon: icon,
                         formattedDate: _formatDate(post.createdAt),
                         onTap: () async {
                           await Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (_) => PostDetailScreen(post: post, imageUrl: imageUrl)),
+                            MaterialPageRoute(builder: (_) => PostDetailScreen(post: post, color: color, icon: icon)),
                           );
                           _loadPosts();
                         },
@@ -248,16 +293,33 @@ class _PostListScreenState extends State<PostListScreen> {
   }
 }
 
+class _Circle extends StatelessWidget {
+  final double size;
+  final double opacity;
+  const _Circle({required this.size, required this.opacity});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withValues(alpha: opacity)),
+    );
+  }
+}
+
 class _PostCard extends StatelessWidget {
   final Post post;
-  final String imageUrl;
+  final Color color;
+  final IconData icon;
   final String formattedDate;
   final VoidCallback onTap;
   final VoidCallback onDelete;
 
   const _PostCard({
     required this.post,
-    required this.imageUrl,
+    required this.color,
+    required this.icon,
     required this.formattedDate,
     required this.onTap,
     required this.onDelete,
@@ -265,6 +327,7 @@ class _PostCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasImage = post.image != null && post.image!.isNotEmpty;
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -272,53 +335,40 @@ class _PostCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Cover image with gradient overlay
+            // Cover: base64 image or colored fallback
             Stack(
               children: [
-                Hero(
-                  tag: 'post-image-${post.id}',
-                  child: Image.network(
-                    imageUrl,
+                if (hasImage)
+                  Image.memory(
+                    base64Decode(post.image!),
                     height: 180,
                     width: double.infinity,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      height: 180,
-                      color: Theme.of(context).colorScheme.primaryContainer,
-                      child: Icon(Icons.image_not_supported, size: 48, color: Theme.of(context).colorScheme.onPrimaryContainer),
-                    ),
-                  ),
-                ),
-                // Gradient overlay at bottom
-                Positioned(
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  child: Container(
-                    height: 60,
-                    decoration: const BoxDecoration(
+                  )
+                else
+                  Container(
+                    height: 140,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [Colors.transparent, Colors.black54],
+                        colors: [color, color.withValues(alpha: 0.7)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
                     ),
+                    child: Center(
+                      child: Icon(icon, size: 56, color: Colors.white.withValues(alpha: 0.4)),
+                    ),
                   ),
-                ),
-                // Date badge
                 Positioned(
                   top: 12,
                   left: 12,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: Colors.black54,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
+                    decoration: BoxDecoration(color: Colors.black38, borderRadius: BorderRadius.circular(20)),
                     child: Text(formattedDate, style: const TextStyle(color: Colors.white, fontSize: 12)),
                   ),
                 ),
-                // Delete button
                 Positioned(
                   top: 8,
                   right: 8,
@@ -337,7 +387,6 @@ class _PostCard extends StatelessWidget {
                 ),
               ],
             ),
-            // Title & preview
             Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -359,9 +408,9 @@ class _PostCard extends StatelessWidget {
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      Text('Read more', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w600)),
+                      Text('Read more', style: TextStyle(color: color, fontWeight: FontWeight.w600)),
                       const SizedBox(width: 4),
-                      Icon(Icons.arrow_forward, size: 16, color: Theme.of(context).colorScheme.primary),
+                      Icon(Icons.arrow_forward, size: 16, color: color),
                     ],
                   ),
                 ],

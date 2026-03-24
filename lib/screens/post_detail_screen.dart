@@ -1,12 +1,14 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../models/post.dart';
 import 'post_form_screen.dart';
 
 class PostDetailScreen extends StatelessWidget {
   final Post post;
-  final String imageUrl;
+  final Color color;
+  final IconData icon;
 
-  const PostDetailScreen({super.key, required this.post, required this.imageUrl});
+  const PostDetailScreen({super.key, required this.post, required this.color, required this.icon});
 
   String _formatDate(String iso) {
     try {
@@ -21,53 +23,52 @@ class PostDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final hasImage = post.image != null && post.image!.isNotEmpty;
     return Scaffold(
       body: CustomScrollView(
         slivers: [
-          // Hero image app bar
           SliverAppBar(
-            expandedHeight: 280,
+            expandedHeight: hasImage ? 280 : 220,
             pinned: true,
             flexibleSpace: FlexibleSpaceBar(
-              background: Hero(
-                tag: 'post-image-${post.id}',
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Image.network(
-                      imageUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, e, s) => Container(
-                        color: colorScheme.primaryContainer,
-                        child: Icon(Icons.image, size: 64, color: colorScheme.onPrimaryContainer),
-                      ),
-                    ),
-                    // Dark gradient for readability
-                    const DecoratedBox(
+              background: hasImage
+                  ? Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Image.memory(base64Decode(post.image!), fit: BoxFit.cover),
+                        const DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [Colors.transparent, Colors.black87],
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  : Container(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [Colors.transparent, Colors.black87],
+                          colors: [color, color.withValues(alpha: 0.6)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                         ),
                       ),
+                      child: Center(
+                        child: Icon(icon, size: 80, color: Colors.white.withValues(alpha: 0.3)),
+                      ),
                     ),
-                  ],
-                ),
-              ),
               title: Text(post.title, style: const TextStyle(fontWeight: FontWeight.bold)),
               titlePadding: const EdgeInsets.only(left: 16, bottom: 16, right: 48),
             ),
           ),
-
-          // Post body
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Author & date row
                   Row(
                     children: [
                       CircleAvatar(
@@ -88,15 +89,11 @@ class PostDetailScreen extends StatelessWidget {
                   const SizedBox(height: 20),
                   const Divider(),
                   const SizedBox(height: 20),
-
-                  // Content
                   Text(
                     post.content,
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.8, letterSpacing: 0.2),
                   ),
                   const SizedBox(height: 32),
-
-                  // Tags-like decoration
                   Wrap(
                     spacing: 8,
                     children: [

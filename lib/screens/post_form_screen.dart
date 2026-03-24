@@ -1,4 +1,7 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../database/database_helper.dart';
 import '../models/post.dart';
 
@@ -14,8 +17,8 @@ class _PostFormScreenState extends State<PostFormScreen> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _titleCtrl;
   late final TextEditingController _contentCtrl;
-  late final TextEditingController _imageCtrl;
   bool _isSaving = false;
+  String? _imageBase64;
 
   bool get _isEditing => widget.post != null;
 
@@ -24,15 +27,23 @@ class _PostFormScreenState extends State<PostFormScreen> {
     super.initState();
     _titleCtrl = TextEditingController(text: widget.post?.title ?? '');
     _contentCtrl = TextEditingController(text: widget.post?.content ?? '');
-    _imageCtrl = TextEditingController(text: widget.post?.imageUrl ?? '');
+    _imageBase64 = widget.post?.image;
   }
 
   @override
   void dispose() {
     _titleCtrl.dispose();
     _contentCtrl.dispose();
-    _imageCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: ImageSource.gallery, maxWidth: 800, imageQuality: 70);
+    if (picked != null) {
+      final bytes = await File(picked.path).readAsBytes();
+      setState(() => _imageBase64 = base64Encode(bytes));
+    }
   }
 
   Future<void> _savePost() async {
@@ -44,7 +55,7 @@ class _PostFormScreenState extends State<PostFormScreen> {
         title: _titleCtrl.text.trim(),
         content: _contentCtrl.text.trim(),
         createdAt: _isEditing ? widget.post!.createdAt : DateTime.now().toIso8601String(),
-        imageUrl: _imageCtrl.text.trim(),
+        image: _imageBase64,
       );
       if (_isEditing) {
         await DatabaseHelper.instance.updatePost(post);
@@ -80,68 +91,56 @@ class _PostFormScreenState extends State<PostFormScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Image preview
-              ListenableBuilder(
-                listenable: _imageCtrl,
-                builder: (context, _) {
-                  final url = _imageCtrl.text.trim();
-                  return AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 300),
-                    child: url.isNotEmpty
-                        ? ClipRRect(
-                            key: ValueKey(url),
-                            borderRadius: BorderRadius.circular(16),
-                            child: Image.network(
-                              url,
-                              height: 180,
+              // Image preview & picker
+              GestureDetector(
+                onTap: _pickImage,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: _imageBase64 != null
+                      ? Stack(
+                          children: [
+                            Image.memory(
+                              base64Decode(_imageBase64!),
+                              height: 200,
                               width: double.infinity,
                               fit: BoxFit.cover,
-                              errorBuilder: (_, e, s) => Container(
-                                height: 180,
-                                decoration: BoxDecoration(
-                                  color: Colors.red.shade50,
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: const Center(child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(Icons.broken_image, size: 40, color: Colors.red),
-                                    SizedBox(height: 8),
-                                    Text('Invalid image URL', style: TextStyle(color: Colors.red)),
-                                  ],
-                                )),
+                            ),
+                            Positioned(
+                              top: 8,
+                              right: 8,
+                              child: Row(
+                                children: [
+                                  _MiniButton(
+                                    icon: Icons.edit,
+                                    onTap: _pickImage,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  _MiniButton(
+                                    icon: Icons.close,
+                                    onTap: () => setState(() => _imageBase64 = null),
+                                  ),
+                                ],
                               ),
                             ),
-                          )
-                        : Container(
-                            key: const ValueKey('placeholder'),
-                            height: 180,
-                            decoration: BoxDecoration(
-                              color: colorScheme.surfaceContainerHighest,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: Colors.grey.shade300, style: BorderStyle.solid),
-                            ),
-                            child: Center(child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.add_photo_alternate_outlined, size: 48, color: Colors.grey.shade400),
-                                const SizedBox(height: 8),
-                                Text('Add a cover image URL', style: TextStyle(color: Colors.grey.shade500)),
-                              ],
-                            )),
+                          ],
+                        )
+                      : Container(
+                          height: 200,
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            color: colorScheme.surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.grey.shade300),
                           ),
-                  );
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // Image URL field
-              TextFormField(
-                controller: _imageCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Image URL (optional)',
-                  hintText: 'https://images.unsplash.com/...',
-                  prefixIcon: Icon(Icons.link),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.add_photo_alternate_outlined, size: 48, color: Colors.grey.shade400),
+                              const SizedBox(height: 8),
+                              Text('Tap to add a cover image', style: TextStyle(color: Colors.grey.shade500)),
+                            ],
+                          ),
+                        ),
                 ),
               ),
               const SizedBox(height: 20),
@@ -179,7 +178,9 @@ class _PostFormScreenState extends State<PostFormScreen> {
                 height: 52,
                 child: FilledButton.icon(
                   onPressed: _isSaving ? null : _savePost,
-                  icon: _isSaving ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.check),
+                  icon: _isSaving
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.check),
                   label: Text(_isEditing ? 'Update Post' : 'Publish Post', style: const TextStyle(fontSize: 16)),
                   style: FilledButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
                 ),
@@ -192,4 +193,24 @@ class _PostFormScreenState extends State<PostFormScreen> {
   }
 }
 
+class _MiniButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  const _MiniButton({required this.icon, required this.onTap});
 
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.black54,
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Icon(icon, color: Colors.white, size: 20),
+        ),
+      ),
+    );
+  }
+}

@@ -3,14 +3,14 @@ class Post {
   final String title;
   final String content;
   final String createdAt;
-  final String imageUrl;
+  final String? image; // base64 encoded image
 
   Post({
     this.id,
     required this.title,
     required this.content,
     required this.createdAt,
-    required this.imageUrl,
+    this.image,
   });
 
   Map<String, dynamic> toMap() {
@@ -19,7 +19,7 @@ class Post {
       'title': title,
       'content': content,
       'created_at': createdAt,
-      'image_url': imageUrl,
+      'image': image,
     };
   }
 
@@ -29,7 +29,7 @@ class Post {
       title: map['title'] as String? ?? '',
       content: map['content'] as String? ?? '',
       createdAt: map['created_at'] as String? ?? '',
-      imageUrl: map['image_url'] as String? ?? '',
+      image: map['image'] as String?,
     );
   }
 }
