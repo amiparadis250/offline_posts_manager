@@ -1,7 +1,6 @@
 # Offline Posts Manager
 
-Flutter app for managing posts locally using SQLite — no internet needed.
-
+Flutter app for managing posts locally using SQLite, no internet needed.
 ## Features
 - View, add, edit, delete posts
 - Pick images from gallery (stored as base64 in SQLite)
@@ -9,9 +8,9 @@ Flutter app for managing posts locally using SQLite — no internet needed.
 - Fully offline
 
 ## Dependencies
-- **sqflite** — Local SQLite database
-- **path** — Database file path construction
-- **image_picker** — Gallery image selection
+- **sqflite** 
+- **path** 
+- **image_picker** 
 
 ## Screenshots
 
